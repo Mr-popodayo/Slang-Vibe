@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { CheckCircle2, XCircle, ArrowRight, Lightbulb } from "lucide-react";
 import { QuizQuestion } from "@/types";
@@ -13,6 +13,21 @@ interface QuizCardProps {
     totalQuestions: number;
 }
 
+// 入力の最大文字数（異常な長さの回答を防ぐ）
+const MAX_ANSWER_LENGTH = 100;
+
+// 正解判定後、次の問題に進むまでの待ち時間（ms）
+const NEXT_QUESTION_DELAY = 1200;
+
+/**
+ * 回答文字列を正規化する
+ * 前後の空白を除去し、小文字に統一することで
+ * 「 Slay 」と「slay」を同じ回答として扱う
+ */
+const normalizeAnswer = (answer: string): string => {
+    return answer.trim().toLowerCase();
+};
+
 export default function QuizCard({
     question,
     onAnswer,
@@ -24,21 +39,53 @@ export default function QuizCard({
     const [revealed, setRevealed] = useState(false);
     const [isCorrect, setIsCorrect] = useState(false);
 
+    // コンポーネントがまだマウントされているかを追跡
+    // setTimeout実行時にアンマウント済みなら状態更新をスキップする
+    const isMountedRef = useRef(true);
+
+    useEffect(() => {
+        return () => {
+            isMountedRef.current = false;
+        };
+    }, []);
+
     const handleSelect = (option: string) => {
         if (revealed) return;
         setSelectedOption(option);
         const correct = option === question.correctAnswer;
         setIsCorrect(correct);
         setRevealed(true);
-        setTimeout(() => onAnswer(correct), 1200);
+        setTimeout(() => {
+            // アンマウント後の状態更新を防ぐ
+            if (isMountedRef.current) {
+                onAnswer(correct);
+            }
+        }, NEXT_QUESTION_DELAY);
     };
 
     const handleFillSubmit = () => {
-        if (revealed || !fillAnswer.trim()) return;
-        const correct = fillAnswer.trim().toLowerCase() === question.correctAnswer.toLowerCase();
+        if (revealed) return;
+
+        const normalized = normalizeAnswer(fillAnswer);
+
+        // 空文字・空白のみの回答は無視
+        if (normalized.length === 0) return;
+
+        const correct = normalized === normalizeAnswer(question.correctAnswer);
         setIsCorrect(correct);
         setRevealed(true);
-        setTimeout(() => onAnswer(correct), 1200);
+        setTimeout(() => {
+            if (isMountedRef.current) {
+                onAnswer(correct);
+            }
+        }, NEXT_QUESTION_DELAY);
+    };
+
+    const handleFillChange = (inputValue: string) => {
+        // 最大文字数を超える入力を防ぐ
+        if (inputValue.length <= MAX_ANSWER_LENGTH) {
+            setFillAnswer(inputValue);
+        }
     };
 
     return (
@@ -59,7 +106,14 @@ export default function QuizCard({
                         <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                             Question {questionNumber} / {totalQuestions}
                         </span>
-                        <div className="h-1.5 flex-1 mx-4 rounded-full bg-secondary/50 overflow-hidden">
+                        <div
+                            className="h-1.5 flex-1 mx-4 rounded-full bg-secondary/50 overflow-hidden"
+                            role="progressbar"
+                            aria-valuenow={questionNumber}
+                            aria-valuemin={1}
+                            aria-valuemax={totalQuestions}
+                            aria-label={`Progress: question ${questionNumber} of ${totalQuestions}`}
+                        >
                             <motion.div
                                 className="h-full gradient-bg rounded-full"
                                 initial={{ width: 0 }}
@@ -72,7 +126,7 @@ export default function QuizCard({
                     {/* Question */}
                     <div className="mb-6">
                         <div className="flex items-start gap-3 mb-2">
-                            <Lightbulb className="h-5 w-5 text-vibe-purple mt-0.5 shrink-0" />
+                            <Lightbulb className="h-5 w-5 text-vibe-purple mt-0.5 shrink-0" aria-hidden="true" />
                             <h3 className="text-lg font-semibold text-foreground leading-snug">
                                 {question.question}
                             </h3>
@@ -81,7 +135,7 @@ export default function QuizCard({
 
                     {/* Multiple choice */}
                     {question.type === "multiple-choice" && question.options && (
-                        <div className="space-y-3">
+                        <div className="space-y-3" role="radiogroup" aria-label="Answer options">
                             {question.options.map((option, i) => {
                                 const letter = String.fromCharCode(65 + i);
                                 const isSelected = selectedOption === option;
@@ -89,11 +143,15 @@ export default function QuizCard({
 
                                 return (
                                     <motion.button
-                                        key={option}
+                                        // indexとoptionを組み合わせて一意なkeyを保証
+                                        key={`${i}-${option}`}
                                         whileHover={!revealed ? { scale: 1.01 } : {}}
                                         whileTap={!revealed ? { scale: 0.99 } : {}}
                                         onClick={() => handleSelect(option)}
                                         disabled={revealed}
+                                        type="button"
+                                        role="radio"
+                                        aria-checked={isSelected}
                                         className={cn(
                                             "relative w-full flex items-center gap-3 rounded-xl border p-4 text-left transition-all duration-200",
                                             !revealed &&
@@ -120,10 +178,10 @@ export default function QuizCard({
                                             {option}
                                         </span>
                                         {revealed && isAnswer && (
-                                            <CheckCircle2 className="h-5 w-5 text-emerald-400 shrink-0" />
+                                            <CheckCircle2 className="h-5 w-5 text-emerald-400 shrink-0" aria-hidden="true" />
                                         )}
                                         {revealed && isSelected && !isAnswer && (
-                                            <XCircle className="h-5 w-5 text-rose-400 shrink-0" />
+                                            <XCircle className="h-5 w-5 text-rose-400 shrink-0" aria-hidden="true" />
                                         )}
                                     </motion.button>
                                 );
@@ -135,13 +193,19 @@ export default function QuizCard({
                     {question.type === "fill-in-blank" && (
                         <div className="space-y-4">
                             <div className="flex gap-3">
+                                <label htmlFor="fill-answer" className="sr-only">
+                                    Your answer
+                                </label>
                                 <input
+                                    id="fill-answer"
                                     type="text"
                                     value={fillAnswer}
-                                    onChange={(e) => setFillAnswer(e.target.value)}
+                                    onChange={(e) => handleFillChange(e.target.value)}
                                     onKeyDown={(e) => e.key === "Enter" && handleFillSubmit()}
                                     disabled={revealed}
                                     placeholder="Type your answer…"
+                                    maxLength={MAX_ANSWER_LENGTH}
+                                    autoComplete="off"
                                     className={cn(
                                         "flex-1 rounded-xl border bg-secondary/20 px-4 py-3 text-sm text-foreground",
                                         "placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-vibe-purple/40",
@@ -154,9 +218,10 @@ export default function QuizCard({
                                     <motion.button
                                         whileTap={{ scale: 0.95 }}
                                         onClick={handleFillSubmit}
+                                        type="button"
                                         className="flex items-center gap-2 rounded-xl gradient-bg px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-vibe-purple/25 hover:opacity-90 transition-opacity"
                                     >
-                                        Check <ArrowRight className="h-4 w-4" />
+                                        Check <ArrowRight className="h-4 w-4" aria-hidden="true" />
                                     </motion.button>
                                 )}
                             </div>
@@ -173,12 +238,13 @@ export default function QuizCard({
                                                 ? "border-emerald-400/30 bg-emerald-400/10"
                                                 : "border-rose-400/30 bg-rose-400/10"
                                         )}
+                                        role="alert"
                                     >
                                         <div className="flex items-center gap-2 mb-1">
                                             {isCorrect ? (
-                                                <CheckCircle2 className="h-5 w-5 text-emerald-400" />
+                                                <CheckCircle2 className="h-5 w-5 text-emerald-400" aria-hidden="true" />
                                             ) : (
-                                                <XCircle className="h-5 w-5 text-rose-400" />
+                                                <XCircle className="h-5 w-5 text-rose-400" aria-hidden="true" />
                                             )}
                                             <p className={cn("text-sm font-semibold", isCorrect ? "text-emerald-400" : "text-rose-400")}>
                                                 {isCorrect ? "Correct!" : "Not quite…"}
