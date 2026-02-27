@@ -200,6 +200,3 @@ export const quizQuestions: QuizQuestion[] = [
         relatedTermId: "37",
     },
 ];
-
-export const amQuizIds = quizQuestions.slice(0, 10).map((q) => q.id);
-export const pmQuizIds = quizQuestions.slice(10).map((q) => q.id);
