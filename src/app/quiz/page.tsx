@@ -2,30 +2,23 @@
 
 import { useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Sun, Moon as MoonIcon, Sparkles, RotateCcw } from "lucide-react";
+import { Sparkles, RotateCcw } from "lucide-react";
 import QuizCard from "@/components/QuizCard";
 import ProgressDisplay from "@/components/ProgressDisplay";
-import { quizQuestions, amQuizIds, pmQuizIds } from "@/data/quizData";
+import { quizQuestions } from "@/data/quizData";
 import { useQuizProgress } from "@/hooks/useQuizProgress";
-import { cn } from "@/lib/utils";
-
-type QuizTab = "am" | "pm";
 
 export default function QuizPage() {
-    const [tab, setTab] = useState<QuizTab>("am");
     const [currentIndex, setCurrentIndex] = useState(0);
     const [completed, setCompleted] = useState(false);
     const { progress, recordAnswer, loaded } = useQuizProgress();
 
-    const currentQuestions = useMemo(() => {
-        const ids = tab === "am" ? amQuizIds : pmQuizIds;
-        return ids.map((id) => quizQuestions.find((q) => q.id === id)!);
-    }, [tab]);
+    const questions = useMemo(() => quizQuestions, []);
 
     const handleAnswer = (correct: boolean) => {
-        recordAnswer(correct, tab);
+        recordAnswer(correct);
         setTimeout(() => {
-            if (currentIndex < currentQuestions.length - 1) {
+            if (currentIndex < questions.length - 1) {
                 setCurrentIndex((prev) => prev + 1);
             } else {
                 setCompleted(true);
@@ -34,12 +27,6 @@ export default function QuizPage() {
     };
 
     const restart = () => {
-        setCurrentIndex(0);
-        setCompleted(false);
-    };
-
-    const switchTab = (newTab: QuizTab) => {
-        setTab(newTab);
         setCurrentIndex(0);
         setCompleted(false);
     };
@@ -61,8 +48,8 @@ export default function QuizPage() {
                     animate={{ opacity: 1, y: 0 }}
                     className="inline-flex items-center gap-2 rounded-full gradient-bg px-4 py-1.5 text-xs font-semibold text-white shadow-lg shadow-vibe-purple/25"
                 >
-                    <Sparkles className="h-3.5 w-3.5" />
-                    DAILY QUIZ
+                    <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
+                    SLANG QUIZ
                 </motion.div>
                 <motion.h1
                     initial={{ opacity: 0, y: 20 }}
@@ -70,7 +57,7 @@ export default function QuizPage() {
                     transition={{ delay: 0.1 }}
                     className="text-3xl sm:text-4xl font-bold tracking-tight"
                 >
-                    Test Your <span className="gradient-text">Vibe Knowledge</span>
+                    Test Your <span className="gradient-text">Slang Knowledge</span>
                 </motion.h1>
                 <motion.p
                     initial={{ opacity: 0, y: 20 }}
@@ -78,56 +65,23 @@ export default function QuizPage() {
                     transition={{ delay: 0.2 }}
                     className="text-muted-foreground max-w-md mx-auto"
                 >
-                    Take the AM quiz in the morning and PM quiz in the evening to build
-                    your streak!
+                    How well do you know modern slang? Jump in and find out!
                 </motion.p>
             </div>
 
             {/* Stats */}
             <ProgressDisplay progress={progress} />
 
-            {/* AM / PM Toggle */}
-            <div className="flex justify-center">
-                <div className="inline-flex items-center rounded-2xl border border-border bg-secondary/30 p-1 backdrop-blur-sm">
-                    {(["am", "pm"] as const).map((t) => (
-                        <button
-                            key={t}
-                            onClick={() => switchTab(t)}
-                            className={cn(
-                                "relative flex items-center gap-2 rounded-xl px-6 py-2.5 text-sm font-medium transition-colors duration-200",
-                                tab === t ? "text-white" : "text-muted-foreground hover:text-foreground"
-                            )}
-                        >
-                            {tab === t && (
-                                <motion.div
-                                    layoutId="quiz-tab"
-                                    className="absolute inset-0 rounded-xl gradient-bg shadow-lg shadow-vibe-purple/25"
-                                    transition={{ type: "spring", bounce: 0.2, duration: 0.5 }}
-                                />
-                            )}
-                            <span className="relative z-10 flex items-center gap-2">
-                                {t === "am" ? (
-                                    <Sun className="h-4 w-4" />
-                                ) : (
-                                    <MoonIcon className="h-4 w-4" />
-                                )}
-                                {t.toUpperCase()} Quiz
-                            </span>
-                        </button>
-                    ))}
-                </div>
-            </div>
-
             {/* Quiz area */}
             <div className="min-h-[400px]">
                 <AnimatePresence mode="wait">
                     {!completed ? (
                         <QuizCard
-                            key={`${tab}-${currentIndex}`}
-                            question={currentQuestions[currentIndex]}
+                            key={currentIndex}
+                            question={questions[currentIndex]}
                             onAnswer={handleAnswer}
                             questionNumber={currentIndex + 1}
-                            totalQuestions={currentQuestions.length}
+                            totalQuestions={questions.length}
                         />
                     ) : (
                         <motion.div
@@ -143,15 +97,15 @@ export default function QuizPage() {
                                     Quiz Complete!
                                 </h2>
                                 <p className="text-muted-foreground mb-6">
-                                    You finished the {tab.toUpperCase()} Quiz. Check your stats
-                                    above to track your progress.
+                                    Great job! Check your stats above to track your progress.
                                 </p>
                                 <motion.button
+                                    type="button"
                                     whileTap={{ scale: 0.95 }}
                                     onClick={restart}
                                     className="inline-flex items-center gap-2 rounded-xl gradient-bg px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-vibe-purple/25 hover:opacity-90 transition-opacity"
                                 >
-                                    <RotateCcw className="h-4 w-4" />
+                                    <RotateCcw className="h-4 w-4" aria-hidden="true" />
                                     Try Again
                                 </motion.button>
                             </div>
