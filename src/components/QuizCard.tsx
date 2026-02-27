@@ -81,12 +81,11 @@ export default function QuizCard({
         }, NEXT_QUESTION_DELAY);
     };
 
-    const handleFillChange = (inputValue: string) => {
-        // 最大文字数を超える入力を防ぐ
-        if (inputValue.length <= MAX_ANSWER_LENGTH) {
-            setFillAnswer(inputValue);
-        }
-    };
+   const handleFillChange = (inputValue: string) => {
+    // 超えた場合は切り捨て（ブロックではなくトリミング）
+    // これによりペーストやIME入力でも確実に制限が効く
+    setFillAnswer(inputValue.slice(0, MAX_ANSWER_LENGTH));
+};
 
     return (
         <motion.div
