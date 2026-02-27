@@ -11,8 +11,6 @@ const defaultProgress: QuizProgress = {
     totalAnswered: 0,
     streak: 0,
     lastQuizDate: "",
-    amCompleted: false,
-    pmCompleted: false,
 };
 
 export function useQuizProgress() {
@@ -24,11 +22,6 @@ export function useQuizProgress() {
             const stored = localStorage.getItem(STORAGE_KEY);
             if (stored) {
                 const parsed = JSON.parse(stored) as QuizProgress;
-                const today = new Date().toDateString();
-                if (parsed.lastQuizDate !== today) {
-                    parsed.amCompleted = false;
-                    parsed.pmCompleted = false;
-                }
                 setProgress(parsed);
             }
         } catch {
@@ -37,18 +30,16 @@ export function useQuizProgress() {
         setLoaded(true);
     }, []);
 
-    const updateProgress = (correct: boolean, quizType: "am" | "pm") => {
+    const recordAnswer = (correct: boolean) => {
         setProgress((prev) => {
             const today = new Date().toDateString();
             const isNewDay = prev.lastQuizDate !== today;
             const updated: QuizProgress = {
-                totalQuizzes: prev.totalQuizzes + (quizType === "am" && !prev.amCompleted ? 1 : quizType === "pm" && !prev.pmCompleted ? 1 : 0),
+                totalQuizzes: isNewDay ? prev.totalQuizzes + 1 : prev.totalQuizzes,
                 totalCorrect: prev.totalCorrect + (correct ? 1 : 0),
                 totalAnswered: prev.totalAnswered + 1,
-                streak: correct ? (isNewDay ? 1 : prev.streak + 1) : 0,
+                streak: correct ? prev.streak + 1 : 0,
                 lastQuizDate: today,
-                amCompleted: quizType === "am" ? true : prev.amCompleted,
-                pmCompleted: quizType === "pm" ? true : prev.pmCompleted,
             };
             try {
                 localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
@@ -57,10 +48,6 @@ export function useQuizProgress() {
             }
             return updated;
         });
-    };
-
-    const recordAnswer = (correct: boolean, quizType: "am" | "pm") => {
-        updateProgress(correct, quizType);
     };
 
     return { progress, recordAnswer, loaded };
