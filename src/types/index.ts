@@ -29,8 +29,7 @@ export interface QuizProgress {
     totalAnswered: number;
     streak: number;
     lastQuizDate: string;
-    amCompleted: boolean;
-    pmCompleted: boolean;
+    
 }
 
 export type CategoryFilter = "All" | "Slang" | "Idiom";
